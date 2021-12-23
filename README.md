@@ -2,6 +2,8 @@
 
 This is OpenVINO based demo for RetinaFace. Forked from PyTorch implementation that is available here: [https://github.com/wang-xinyu/Pytorch_Retinaface](https://github.com/wang-xinyu/Pytorch_Retinaface).
 
+Torch dependency for demo has been eliminated and code can run without it. Some postprocessing steps are kept as is with minimal optimizations performed.
+
 ## Steps to reproduce
 
 ### Clone source and install packages
@@ -15,7 +17,7 @@ pip install -r requirements.txt
 
 ### Install OpenVINO and development tools
 ```Shell
-pip install openvino-dev
+pip install openvino-dev >= 22.1
 ```
 
 ### Download pretrained models as per original repo instructions
@@ -41,8 +43,42 @@ This will generate FaceDetector.onnx
 mo --use_new_frontend --mean_values="[104, 117, 123]" --input_model=FaceDetector.onnx --model_name=FaceDetector_MN
 ```
 This will generate FaceDetector_MN.xml and *.bin files that represent model in OV IR.
+Mean values are integrated in model graph, no need for additional preprocessing.
 
 ### Run demo (requries camera)
 ```Shell
 python openvino_webcam_demo.py
+```
+Demo will run on CPU by default with first available video capture device.
+
+## Trying with different model
+
+### Using ResNet-50 backbone
+
+Generate onnx file that corresponds to model with RN-50.
+
+```Shell
+python ./convert_to_onnx.py -m ./weights/Resnet50_Final.pth --network resnet50
+```
+
+### Convert model to OpenVINO IR 
+
+```Shell
+mo --use_new_frontend --mean_values="[104, 117, 123]" --input_model=FaceDetector.onnx --model_name=FaceDetector_RN50
+```
+This will generate FaceDetector_RN50.xml and *.bin files that represent model in OV IR.
+Mean values are integrated in model graph, no need for additional preprocessing.
+
+### Run demo (requries camera)
+```Shell
+python openvino_webcam_demo.py --backbone=RN
+```
+
+### Using different inference device
+
+Use --device option to change device that will be used for inference (e.g. GPU). List of available devices is printed upon demo run.
+Check out [openvino.ai](openvino.ai) for information on configuration
+
+```Shell
+python openvino_webcam_demo.py --device=GPU
 ```

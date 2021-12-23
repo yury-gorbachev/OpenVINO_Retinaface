@@ -3,6 +3,7 @@
 import cv2
 import numpy as np
 import time
+import argparse
 
 from math import ceil
 from itertools import product as product
@@ -13,8 +14,7 @@ from openvino.preprocess import PrePostProcessor, ResizeAlgorithm
 from data import cfg_mnet, cfg_re50
 from utils.nms.py_cpu_nms import py_cpu_nms
 
-#import torch
-
+#model postprocessing (modified from original pytorch based code)
 def compute_priors(cfg, image_size):
     min_sizes_cfg = cfg['min_sizes']
     steps = cfg['steps']
@@ -82,15 +82,6 @@ def decode_landmarks(pre, priors, variances):
                         ), axis=1)
     return landms
 
-def process_frame(model, input):
-    input=np.expand_dims(input, 0) #HWC->NHWC
-    tic=time.time()
-    output=model.infer_new_request({0: input})
-    output=list(output.values())
-    infer_time=(time.time() - tic)
-    output=(output[0], output[1], output[2])
-    return output, infer_time
-
 def postprocess_frame(cfg, output):
 
     confidence=output[1]
@@ -124,7 +115,6 @@ def postprocess_frame(cfg, output):
     # do NMS
     dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
     keep = py_cpu_nms(dets, nms_threshold)
-    # keep = nms(dets, args.nms_threshold,force_cpu=args.cpu)
     dets = dets[keep, :]
     landms = landms[keep]
 
@@ -135,15 +125,35 @@ def postprocess_frame(cfg, output):
     dets = np.concatenate((dets, landms), axis=1)
     return dets
 
+#actual processing of frame
+def process_frame(model, input):
+    input=np.expand_dims(input, 0) #HWC->NHWC
+    tic=time.time()
+    output=model.infer_new_request({0: input})
+    infer_time=(time.time() - tic)
+    output=list(output.values())
+    output=(output[0], output[1], output[2])
+    return output, infer_time
+
+
+parser = argparse.ArgumentParser(description='OV_RF')
+parser.add_argument('--device', default="CPU", help='Device to perform inference on')
+parser.add_argument('--backbone', default="MN", help='Model to run (MN/RN50). Requires IRs to present before run')
+
+args = parser.parse_args()
+
 #algo settings
 
-#for mobilenet
-model_cfg=cfg_mnet
-modelPath="FaceDetector_MN.xml"
-
-#for resnet-50
-#modelPath="FaceDetector_RN50.xml"
-#model_cfg=cfg_re50
+if (args.backbone=="MN"):
+    #for mobilenet
+    print("Demo will run MobineNet based model")
+    model_cfg=cfg_mnet
+    modelPath="FaceDetector_MN.xml"
+else:
+    #for resnet-50
+    print("Demo will run ResNet based model")
+    modelPath="FaceDetector_RN50.xml"
+    model_cfg=cfg_re50
 
 confidence_threshold=0.02
 top_k=int(5)
@@ -158,6 +168,13 @@ input_h, input_w, _ = frame.shape
 
 #create core object
 core=Core()
+
+print("Devices available for OpenVINO inference:")
+for device in core.available_devices:
+    print(f'- {device}')
+
+print("Demo will run on "+args.device)
+
 #load IR model, converted from ONNX and mean values integrated in model
 model=core.read_model(modelPath)
 
@@ -186,7 +203,7 @@ pp.input().model().set_layout(Layout('NCHW'))
 model=pp.build()
 
 #compile model for CPU
-compiledModel=core.compile_model(model, "CPU")
+compiledModel=core.compile_model(model, args.device)
 
 while True:
     ret, frame = camera.read()
