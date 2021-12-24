@@ -1,6 +1,7 @@
 # RetinaFace in OpenVINO
 
-This is OpenVINO based demo for RetinaFace. Forked from PyTorch implementation that is available here: [https://github.com/wang-xinyu/Pytorch_Retinaface](https://github.com/wang-xinyu/Pytorch_Retinaface).
+This is OpenVINO based webcam demo for RetinaFace (Simultaneous face and landmark detection).
+Forked from PyTorch implementation that is available here: [https://github.com/wang-xinyu/Pytorch_Retinaface](https://github.com/wang-xinyu/Pytorch_Retinaface).
 
 Torch dependency for demo has been eliminated and code can run without it. Some postprocessing steps are kept as is with minimal optimizations performed.
 
